@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="http://d3js.org/d3.v2.js"></script>
+
+<style>
+body {
+	background-color: #ddd;
+}
+#chart {
+	margin-top:50px;
+	margin-left:20px;
+	background-color: #fff;
+	border:1px solid #ccc;
+	border-radius: 5px;
+	width:600px;
+	height:300px;
+}
+
+#svg {
+	border:1px solid black;
+	width:500px;
+	height:100px;
+	margin-top:20px;
+	margin-left:20px;
+}
+
+svg {
+shape-rendering: geometricPrecision;
+}
+
+g.axis path,
+g.axis line {
+	stroke:#777;
+	stroke-width:1px;
+	fill:none;
+}
+
+g.axis text {
+	font: 10px helvetica,arial,verdana;
+	fill:#777;
+	stroke-width:1px;
+}
+
+/*line.axis,
+line.xticks {
+  stroke:red;
+  stroke-width:1px;
+}
+*/
+g.series1 circle {
+	stroke: rgb(128,0,0);
+	stroke-width:1px;
+	fill: rgb(255,0,0);
+}
+g.series1 path {
+	stroke:rgb(128,0,0);
+	stroke-width:2px;
+	fill:none;
+}
+g.series1 path.hover {
+	stroke-width:6px;
+}
+
+g.series2 circle {
+	stroke: rgb(0,0,128);
+	stroke-width:1px;
+	fill: rgb(0,0,255);
+}
+g.series2 path {
+	stroke:rgb(0,0,128);
+	stroke-width:2px;
+	fill:none;
+}
+
+</style>
+</head>
+
+<body>
+	<div id="chart"></div>
+	<button onclick="toggleHover()">Toggle Hover</button>
+</body>
+
+<script>
+var model = {
+	title: 'Sample Chart',
+	series: [
+		{
+			name: "series1",
+			values: [],
+		},
+		{
+			name: "series2",
+			values: [],
+		},
+	],
+};
+
+//var data = [100, 50, 75, 150, 45, 175];
+//var data = [];
+//for(i=0; i<50;i++) { data.push(Math.random()*100); }
+var max_series_values=[200,75];
+for(i=0; i<model.series.length;i++) {
+	for(k=0; k<20;k++) { model.series[i].values.push(Math.random()*max_series_values[i]); }
+}
+
+var total_size = {w:600, h:300};
+
+var svg = d3.select('#chart').append("svg:svg");
+
+svg .attr("width", total_size.w)
+	.attr("height", total_size.h)
+	.call( build_chart );
+
+
+function build_chart(svg) {
+
+	var margin = {top:16, right:10, bottom:30, left:50};
+	var chart_size = {w:total_size.w-margin.left-margin.right, h:total_size.h-margin.top-margin.bottom};
+	var max_value = 200;
+	var dot_radius = 3;
+	var hover = false;
+	var path_stroke_widths = ['2px', '4px'];
+	var longest_data_series;
+	var gwrap;
+	var series;
+
+
+	var selected_dot = {
+		series_index:null,
+		dot_index:null,
+	
+		selected: function() { return this.series_index!=null && this.dot_index!=null; },
+		set: function(series_index,dot_index) {this.series_index=series_index; this.dot_index=dot_index;},
+		reset: function() {this.series_index=null; this.dot_index=null;},
+
+		is_series: function(series_index) { return this.selected() && this.series_index == series_index; },
+		is_series_and_dot: function(series_index,dot_index) { return this.is_series(series_index) && this.dot_index==dot_index; },
+	};
+
+
+	function create_series(model) {
+		return model.series.map( function(item, index) {
+			return {
+				name: item.name,
+				values: item.values,
+				hover: false,
+				disabled: false,
+			};
+		});
+	}
+
+	function draw_xaxis() {
+		var xAxis = d3.svg.axis()
+	                  .scale(x)
+	                  .tickFormat( function(d,i) { return (i%10)==0 ? ("Week "+(i+1)):""; })
+	                  .tickSize(0)
+	                  .orient("bottom");
+
+	    gwrap.select(".x.axis").call(xAxis);
+
+		// X axis ticks
+		gwrap.select(".x.axis").selectAll(".xticks").data(x.domain())
+		.enter().append("svg:line")
+			.attr("class", "xticks")
+			.attr("x1", function (d,i) {return x(i)+x.rangeBand()-1;} )
+			.attr("y1", -1*y(0))
+			.attr("x2", function (d,i) {return x(i)+x.rangeBand()-1;} )
+			.attr("y2", -1*y(0)+4);
+	}
+
+	function draw_yaxis() {
+		// var yAxis = d3.svg.axis()
+	 //                  .scale(y)
+	 //                  .orient("left");
+
+	 //    gwrap.select(".y.axis").call(yAxis);
+
+          // Draw Y axis
+          gwrap.select(".y.axis").selectAll("line.axis").data([0])
+          .enter().append("svg:line")
+	          .attr("class", "axis")
+	          .attr("x1", x(0))
+	          .attr("y1", -1 * y(0))
+	          .attr("x2", x(0))
+	          .attr("y2", -1 * y(max_value));
+
+          // Y axis ticks & labels
+/*
+          g.selectAll(".yticks")
+          .data([max_value])
+          .enter().append("svg:line")
+          .attr("class", "yticks")
+          .attr("x1", x(0)-3)
+          .attr("y1", ytick)
+          .attr("x2", x(0)+1)
+          .attr("y2", ytick)
+*/
+          gwrap.select(".y.axis").selectAll(".ylabel").data([max_value])
+          .enter().append("svg:text")
+	          .text(String)
+	          .attr("class", "ylabel")
+	          .attr("x", x(0)-2)
+	          .attr("y", (-1 * y(max_value))+4 )
+	          .attr("text-anchor", "end");
+
+	}
+
+
+	function xtick(d,i) {
+		return x(i) + x.rangeBand()/2;
+	}
+	function ytick(d) {
+		return -1*y(d);
+	}
+
+
+	function draw_series(reason) {
+		var line = d3.svg.line().x(xtick).y(ytick);
+		var line_zero = d3.svg.line().x(xtick).y( function() {return -1*y(0);} );
+
+		var seriesWrap = gwrap.select(".seriesWrap");
+
+console.log("draw_series: "+reason);
+
+		var gseries = seriesWrap.selectAll(".series").data(series);
+		gseries.enter().append("svg:g")
+			.attr('class', function(d,i) { return "series series"+(i+1); } );
+
+		gseries.each( function(series_data, series_index) {
+			var g = d3.select(this);
+
+			//console.log("series_index="+series_index+", series_data=",series_data);
+
+			var path = g.selectAll("path").data([series_data]);
+			if (path.empty()) {
+				path
+					.enter()
+						.append('svg:path')
+						.style('opacity', 1e-6)
+		 				.style('stroke-width', path_stroke_widths[series_data.hover?1:0])
+						.attr("d", line_zero(series_data.values))
+					.transition()
+					.duration(1000)
+						.style('opacity', 1)
+						.attr("d", line(series_data.values))
+				;
+			}
+			else if (reason === 'dotover') {
+				path
+					.transition()
+					.duration(300)
+						.style('opacity', function(d,i){ return !selected_dot.selected() || selected_dot.is_series(series_index)?1:.3; })
+		 		;
+
+			}
+			else if (reason === 'legendover') {
+				path
+						.attr("d", line(series_data.values))
+						.style('opacity', 1)
+		 				.style('stroke-width', path_stroke_widths[series_data.hover?0:1])
+					.transition()
+					.duration(1000)
+						.attr("d", line(series_data.values))
+		 				.style('stroke-width', path_stroke_widths[series_data.hover?1:0])
+		 		;
+			}
+
+
+			var circles = g.selectAll("circle").data(series_data.values);
+			if (circles.empty()) {
+				circles
+					.enter().append("svg:circle")
+						.attr("cx", xtick)
+						.attr("cy", ytick)
+						.attr("r", 0)
+				        .on('mouseover', function (d,i) {
+							selected_dot.set(series_index, i);
+							draw_series('dotover');
+
+							// var top = total_size.h - margin.bottom - dot_radius/2 - 4 - y(d)
+							// var left = x(i)
+
+							// $('.dot-tooltip').fadeOut();
+							// tooltip_ctrl = $("<div class='dot-tooltip series"+(series_index+1)+"' style='top:"+top+"px; left:"+left+"px;'><div class='series'>"+series_data.name+"</div><div class='data'>Week "+(i+1)+": "+d+"</div></div>").hide();
+							// element.append(tooltip_ctrl)
+
+							// # adjust the top position so that the tooltip sits above the cursor.
+							// tooltip_ctrl.css('top', (top-tooltip_ctrl.height()-12)+'px')
+							// tooltip_ctrl.fadeIn();
+				        })
+				        .on('mouseout', function (d,i) {
+							// $('.dot-tooltip').fadeOut();
+				        	selected_dot.reset();
+							draw_series('dotover');
+				        })
+					.transition()
+					.delay(750)
+				    .duration(300)
+					 	.attr("r", dot_radius)
+				;
+			}
+			else if (reason === 'dotover') {
+				circles
+					.attr('r', dot_radius)
+				.transition()
+				.duration(300)
+				 	.attr("r", function(d,i){ return selected_dot.is_series_and_dot(series_index,i)?2*dot_radius:dot_radius; })
+					.style('opacity', function(d,i){ return !selected_dot.selected() || selected_dot.is_series_and_dot(series_index,i)?1:.3; })
+				;
+			}
+			else {
+				circles
+						.attr('r', series_data.hover?dot_radius:0)
+					.transition()
+					.duration(1000)
+						.attr('r', series_data.hover?0:dot_radius)
+				;
+			}
+
+		});
+
+
+
+
+
+	}
+
+
+	function draw_legend() {
+
+	}
+
+
+	// create series information
+	series = create_series(model);
+	longest_data_series = series[0];
+
+
+	// build chart wrapper and placeholder for the various parts of the chart
+	var gwrap = svg.selectAll('g.wrap').data([series]);
+
+	var gwrapEnter = gwrap.enter().append("svg:g").attr("class", "wrap").attr("transform", "translate(0, "+(total_size.h - margin.bottom)+")");
+
+	gwrapEnter.append('svg:g').attr('class', 'legendWrap');
+	gwrapEnter.append('svg:g').attr('class', 'x axis');
+	gwrapEnter.append('svg:g').attr('class', 'y axis');
+	gwrapEnter.append('svg:g').attr('class', 'seriesWrap');
+
+
+	// X/Y scales
+	var x = d3.scale.ordinal().domain(longest_data_series.values).rangeBands([margin.left, margin.left + chart_size.w]);
+	var y = d3.scale.linear().domain([0, max_value]).range([0, chart_size.h]);
+
+
+
+	draw_xaxis();
+	draw_yaxis();
+	draw_series();
+	draw_legend();
+}
+</script>
+</html>

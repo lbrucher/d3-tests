@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="http://d3js.org/d3.v2.js"></script>
+
+<style>
+body {
+	background-color: #ddd;
+}
+#chart {
+	margin-top:50px;
+	margin-left:20px;
+	background-color: #fff;
+	border:1px solid #ccc;
+	border-radius: 5px;
+	width:600px;
+	height:300px;
+}
+
+#svg {
+	border:1px solid black;
+	width:500px;
+	height:100px;
+	margin-top:20px;
+	margin-left:20px;
+}
+
+line.axis,
+line.xticks {
+  stroke:red;
+  stroke-width:1px;
+}
+
+circle.series1 {
+	stroke: rgb(128,0,0);
+	stroke-width:1px;
+	fill: rgb(255,0,0);
+}
+path.series1 {
+	stroke: rgb(32,0,0);
+	stroke-width:2px;
+	fill:none;
+}
+</style>
+
+</head>
+
+<body>
+	<div id="chart"></div>
+</body>
+
+<script>
+//var data = [100, 50, 75, 150, 45, 175];
+var data = [];
+for(i=0; i<50;i++) { data.push(Math.random()*100); }
+
+var margin = {top:6, right:10, bottom:30, left:10};
+var total_size = {w:600, h:300};
+var chart_size = {w:total_size.w-margin.left-margin.right, h:total_size.h-margin.top-margin.bottom};
+var max_value = 200;
+var dot_radius = 6;
+
+var svg = d3.select('#chart').append("svg:svg");
+svg.attr("width", total_size.w).attr("height", total_size.h);
+//console.log("svg = ", svg);
+
+var g_chart = svg.append("svg:g").attr("transform", "translate(0, "+(total_size.h - margin.bottom)+")");
+//console.log("g = ", g);
+
+var x = d3.scale.ordinal().domain(data).rangeBands([margin.left, margin.left + chart_size.w]);
+var y = d3.scale.linear().domain([0, max_value]).range([0, chart_size.h]);
+
+
+function draw_x_axis() {
+	// Draw X axis
+	// g_chart.selectAll("" append("svg:line")
+	// .attr("class", "axis")
+	// .attr("x1", x(0))
+	// .attr("y1", -1 * y(0))
+	// .attr("x2", x(data.length-1)+x.rangeBand())
+	// .attr("y2", -1 * y(0));
+
+	// // X axis ticks & labels
+	// g_chart.selectAll(".xticks")
+	// .data(data)
+	// .enter().append("svg:line")
+	// .attr("class", "xticks")
+	// .attr("x1", function (d,i) {return x(i)+x.rangeBand()-1;} )
+	// .attr("y1", -1*y(0))
+	// .attr("x2", function (d,i) {return x(i)+x.rangeBand()-1;} )
+	// .attr("y2", -1*y(0)+4);
+
+	// g_chart.selectAll(".xlabel")
+	// .data(data)
+	// .enter().append("svg:text")
+	// .attr("class", "xlabel")
+	// .text( function (d,i) {return "#"+(i+1)+"/"+d;} )
+	// .attr("x", function(d,i){ return x(i) + x.rangeBand()/2; })
+	// .attr("y", (-1*y(0))+14)
+	// .attr("text-anchor", "middle");
+
+
+	var xAxis = d3.svg.axis()
+                  .scale(x)
+                  .tickValues([1,2,3,4,5,6])
+                  .orient("bottom");
+
+    g_chart.append("svg:g")
+    	.attr("class", "axis x")
+    	.call(xAxis);
+}
+
+function xtick(d,i) {
+	return x(i) + x.rangeBand()/2;
+}
+function ytick(d) {
+	return -1*y(d);
+}
+
+draw_x_axis();
+
+
+
+var line = d3.svg.line().x(xtick).y(ytick);
+
+var series = g_chart.selectAll(".series").data([data]).enter().append('svg:g').attr('class', 'series');
+
+series = g_chart.selectAll(".series");
+series.each(function(d) {
+	var e = d3.select(this);
+
+	e.append('svg:path').attr('class','series1');
+	e.append("svg:circle")
+				.attr("class", "series1 mover")
+				.attr("r", 7);
+
+})
+
+var speed = 25;
+
+function draw(k) {
+	series.each(function(d) {
+		var e = d3.select(this);
+
+		if (k > 0) {
+			e.select("path")
+			.attr("d", function(d) { return line(d.slice(0, k)); });
+
+			e.selectAll("circle.fixed")
+				.data( function(d) { return d.slice(0,k); } )
+				.enter().append("svg:circle")
+				.attr("class", 'series1 fixed')
+				.attr("cx", xtick)
+				.attr("cy", ytick)
+				.attr("r", 7)
+				.transition()
+				 	.duration(500)
+				 	.attr("r", 4);
+		}
+
+
+		if (k < data.length) {
+			e.selectAll("circle.mover")
+				.data(function(d) { return [d[k], d[k]]; })
+				.transition()
+					.duration(speed)
+					.attr("transform", function(d,i) { return "translate(" + xtick(d,k) + "," + ytick(d) + ")"; });
+		}
+	});
+}
+
+var k = 0;
+function update_chart() {
+	draw(k);
+	k++;
+ 	if (k <= data.length) {
+		setTimeout(update_chart, speed);
+	}
+	else {
+		series.each(function(d) {
+			var e = d3.select(this);
+			e.selectAll("circle.mover").remove();
+		});
+	}
+}
+
+update_chart();
+</script>
+</html>
